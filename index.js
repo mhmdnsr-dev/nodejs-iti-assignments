@@ -1,95 +1,161 @@
 "use strict";
 
-// 1)
-/**
- * Function that takes the age in years and returns the age in days..
- * @param {number | string} age A number or string that can evaluate to an integer
- * @returns number
- */
-const AgeInDays = (age, t) => {
-  // Only any values ​​that can evaluate to an integer are accepted
-  if (Number.isNaN(+age)) return;
-  return age * 365;
+const fileSystem = require("fs");
+
+const wlcomePage = fileSystem.readFileSync("./index.html");
+
+const requestListener = (req, res) => {
+  console.log(req);
+
+  console.log(req.url);
+
+  console.log(req.method);
+
+  res.end("Hi :)");
 };
+const http = require("http");
 
-console.log(AgeInDays(22));
-console.log(AgeInDays("12"));
-console.log(AgeInDays("ok"));
+const server = http.createServer((req, res) => {
+  /////////////////GET////////////////////
+  if (req.url === "/about" && req.method === "GET") {
+    res.end("about :)");
+  } else if (req.url === "/setting" && req.method === "GET") {
+    res.end("setting :)");
+  } else if (req.url === "/notifi" && req.method === "GET") {
+    res.end("notifi :)");
+  } else if (req.url === "/" && req.method === "GET") {
+    res.end("home :)");
+  } else if (req.url === "/welcome" && req.method === "GET") {
+    res.end(wlcomePage);
+  }
 
-// 2)
-/**
- * Function that takes an array of numbers and returns the smallest number in the set
- * @param  {...number} nums - Array of numbers
- * @returns number
- */
-const smallerNum = (...nums) => {
-  if (!nums.length) return;
-  let smallerNum = nums[0];
-  for (const num of nums) num < smallerNum && (smallerNum = num);
-  return smallerNum;
-};
-console.log(smallerNum(1, -22, -3, 4));
-console.log(smallerNum());
+  /////////////////USERS////////////////////
+  // 1- GetAllUsers
+  else if (req.url === "/users" && req.method === "GET") {
+    const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
+    res.end(JSON.stringify(users));
+  }
 
-// 3)
-/**
- * Function that takes an array and return it with its digits in descending order.
- * @param  {...number} nums -non-negative number
- * @returns array[]
- */
-const descOrder = (...nums) => {
-  if (!nums.length) return;
-  // Bubble sort algorithm
-  for (let i = 0; i < nums.length; i++)
-    for (let j = i + 1; j < nums.length; j++) {
-      if (nums[i] < nums[j]) {
-        // swapping
-        let temp = nums[i];
-        nums[i] = nums[j];
-        nums[j] = temp;
-      }
-    }
-  // Eliminate any negative number
-  while (nums[nums.length - 1] < 0) nums.length--;
-  return nums;
-};
-console.log(descOrder(1, 2, -88, -99, 5, 33, 0, 66, 3, 4));
+  // 2- AddUser
+  else if (req.url === "/add-user" && req.method === "POST") {
+    req.on("data", (chunk) => {
+      const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
 
-// 4)
-/**
- * what is the output of
- */
-console.log([] == []); //==> false    Different reference (addess) value for each
-console.log({} == {}); //==> false    Different reference (addess) value for each
+      users.push(JSON.parse(chunk));
 
-/**
- * what is the output of
- */
-function main() {
-  console.log("A");
-  setTimeout(function print() {
-    console.log("B");
-  }, 0);
-  console.log("C");
-}
-main(); // ==> "A" > "C" > "B"  callback in setTimeout run in the next eventloop cycle (when the stack is empty except "Global Execution Context" )
+      fileSystem.writeFileSync("./data/users.json", JSON.stringify(users));
 
-/**
- * what is the output of
- */
-var num = 8;
-var num = 10;
-console.log(num); // ===>"10" var can re-declare without any errors
+      res.end(chunk);
+    });
+  }
+  // Get all users sorted alphabetically by name
+  else if (req.url === "/sorted-users" && req.method === "GET") {
+    const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
 
-/**
- * what is the output of
- */
-function sayHi() {
-  console.log(name);
-  console.log(age);
-  var name = "Ayush";
-  let age = 21;
-}
-sayHi(); // ==> "undefined"  > ref error can't acsses to "age" before init
-// var declaration is hoisted, not its initialization, therefore will return "undefined" when try access it before is declared
-// let declaration is hoisted and It remains in a "temporary dead zone" (TDZ) therefore will return "ref error" when try access it before is declared
+    res.end(JSON.stringify(users.sort((a, b) => a.name.localeCompare(b.name))));
+  }
+
+  //4- delete user
+  else if (req.url === "/del-user" && req.method === "DELETE") {
+    req.on("data", (chunk) => {
+      const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
+      const delUser = JSON.parse(chunk);
+      const newUsers = users.filter((user) => user.id !== delUser.id);
+      fileSystem.writeFileSync("./data/users.json", JSON.stringify(newUsers));
+      res.end(JSON.stringify(newUsers));
+    });
+  }
+  //5- update user
+  else if (req.url === "/up-user" && req.method === "PUT") {
+    req.on("data", (chunk) => {
+      const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
+      const upUser = JSON.parse(chunk);
+
+      const newUsers = users.map((user) => {
+        if (user.id === upUser.id) {
+          user = upUser;
+        }
+        return user;
+      });
+      fileSystem.writeFileSync("./data/users.json", JSON.stringify(newUsers));
+      res.end(JSON.stringify(newUsers));
+    });
+  }
+
+  //6- search user by id
+  else if (req.url.includes("users/") && req.method === "GET") {
+    const users = JSON.parse(fileSystem.readFileSync("./data/users.json"));
+    const [urlSegment] = req.url.split("/").reverse();
+    const targetUser = urlSegment[0].toUpperCase() + urlSegment.slice(1);
+    res.end(JSON.stringify(users.find((user) => user.id === +targetUser)));
+  }
+
+  //////////////////////// POSTS/////////////////////////////
+  // 1- GetAllposts
+  else if (req.url === "/posts" && req.method === "GET") {
+    const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+    res.end(JSON.stringify(posts));
+  }
+
+  // 2- AddPost
+  else if (req.url === "/add-post" && req.method === "POST") {
+    req.on("data", (chunk) => {
+      const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+
+      posts.push(JSON.parse(chunk));
+
+      fileSystem.writeFileSync("./data/posts.json", JSON.stringify(posts));
+
+      res.end(chunk);
+    });
+  }
+  // Get all posts sorted alphabetically by name
+  else if (req.url === "/sorted-posts" && req.method === "GET") {
+    const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+
+    // posts.sort();
+
+    res.end(JSON.stringify(posts.sort((a, b) => a.id - b.id)));
+  }
+
+  //4- delete post
+  else if (req.url === "/del-post" && req.method === "DELETE") {
+    req.on("data", (chunk) => {
+      const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+      const delPost = JSON.parse(chunk);
+      const newPosts = posts.filter((user) => user.id !== delPost.id);
+      fileSystem.writeFileSync("./data/posts.json", JSON.stringify(newPosts));
+      res.end(JSON.stringify(newPosts));
+    });
+  }
+  //5- update post
+  else if (req.url === "/up-post" && req.method === "PUT") {
+    req.on("data", (chunk) => {
+      const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+      const upPost = JSON.parse(chunk);
+
+      const newPosts = posts.map((post) => {
+        if (post.id === upPost.id) {
+          post = upPost;
+        }
+        return post;
+      });
+      fileSystem.writeFileSync("./data/posts.json", JSON.stringify(newPosts));
+      res.end(JSON.stringify(newPosts));
+    });
+  }
+
+  //6- search post by id
+  else if (req.url.includes("posts/") && req.method === "GET") {
+    const posts = JSON.parse(fileSystem.readFileSync("./data/posts.json"));
+    const [urlSegment] = req.url.split("/").reverse();
+    const targetUser = urlSegment[0].toUpperCase() + urlSegment.slice(1);
+    res.end(JSON.stringify(posts.find((post) => post.id === +targetUser)));
+  }
+  //////////////////////////////////////////////////////
+  else {
+    res.end("not fount :)");
+  }
+});
+
+server.listen(3000);
