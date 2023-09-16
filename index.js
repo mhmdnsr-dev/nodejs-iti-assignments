@@ -6,7 +6,7 @@ import 'dotenv/config';
 
 try {
   await initConnection(
-    `mongodb+srv://${process.env.MONGODB_CONNECT_USER}:${process.env.MONGODB_CONNECT_PASS}@cluster0.3ewicv5.mongodb.net/trello-app?retryWrites=true&w=majority`
+    `mongodb://localhost:27017/trello-app`
   );
   console.log('Connection to db is done');
 } catch (error) {
